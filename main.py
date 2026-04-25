@@ -67,6 +67,12 @@ def send_telegram_message():
     except Exception as e:
         print(f"❌ ไม่สามารถส่งข้อความได้: {e}")
 
+# เริ่มต้น Scheduler นอก if __name__ เพื่อให้รองรับการรันผ่าน gunicorn (หาก Render ใช้เป็นค่าเริ่มต้น)
+tz = pytz.timezone('Asia/Bangkok')
+scheduler = BackgroundScheduler(timezone=tz)
+scheduler.add_job(send_telegram_message, 'cron', hour=4, minute=30)
+scheduler.start()
+
 # สร้าง Route เพื่อให้ UptimeRobot ใช้ Ping เช็คว่าบอทยังทำงานอยู่
 @app.route('/')
 def keep_alive():
@@ -74,15 +80,7 @@ def keep_alive():
 
 if __name__ == '__main__':
     print("🤖 บอทดูดวงส่วนตัว (ราศีพฤษภ) กำลังเริ่มต้นทำงาน...")
-    
-    # ตั้งค่า Scheduler โดยใช้เวลาประเทศไทย (Asia/Bangkok)
-    tz = pytz.timezone('Asia/Bangkok')
-    scheduler = BackgroundScheduler(timezone=tz)
-    
-    # 2. ตั้งเวลาที่ต้องการส่ง ในที่นี้คือ 04:30 น. (เช้ามืด) ของทุกวัน
-    scheduler.add_job(send_telegram_message, 'cron', hour=4, minute=30)
-    scheduler.start()
-    
-    # รันเว็บเซิร์ฟเวอร์บนพอร์ตที่ Render กำหนด หรือพอร์ต 8080 (สำหรับการทำงานคู่กับ UptimeRobot)
+    # รันเว็บเซิร์ฟเวอร์บนพอร์ตที่ Render กำหนด
     port = int(os.environ.get('PORT', 8080))
-    app.run(host='0.0.0.0', port=port)
+    # ปิด reloader เพื่อป้องกันไม่ให้รัน Scheduler ซ้ำซ้อน 2 รอบ
+    app.run(host='0.0.0.0', port=port, use_reloader=False)

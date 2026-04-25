@@ -133,6 +133,49 @@ def get_lotto_prediction(lotto_type):
     return message
 
 # ==========================================
+# 5. ฤกษ์มงคลประจำวัน (Luck)
+# ==========================================
+def get_lucky_time():
+    profile = "ชาย เกิด 26 พ.ค. 2541 (ราศีพฤษภ ♉️)"
+    tz = pytz.timezone('Asia/Bangkok')
+    now = datetime.now(tz)
+    days_th = ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์", "อาทิตย์"]
+    day_name = days_th[now.weekday()]
+    today_date = f"วัน{day_name}ที่ {now.strftime('%d/%m/%Y')}"
+    prompt = (
+        f"วิเคราะห์ฤกษ์มงคลประจำ{today_date} สำหรับ {profile} "
+        "โดยระบุ ⏰ ช่วงเวลาฤกษ์ดี (เหมาะทำเรื่องสำคัญ เช่น เซ็นสัญญา เจรจา เริ่มงานใหม่) "
+        "และ ⛔ ช่วงเวลาที่ควรระวัง พร้อมคำแนะนำสั้นๆ กระชับ"
+    )
+    answer = call_openai_api(prompt)
+    return f"📅 **ฤกษ์มงคลประจำวัน** ({today_date})\n━━━━━━━━━━━━━━━\n\n{answer}"
+
+# ==========================================
+# 6. เช็คดวงคู่ครอง (Match)
+# ==========================================
+def get_match_reading(partner_info):
+    profile = "ชาย เกิด 26 พ.ค. 2541 (ราศีพฤษภ ♉️)"
+    prompt = (
+        f"วิเคราะห์ความเข้ากันได้ระหว่าง {profile} กับคนที่เกิด '{partner_info}' "
+        "โดยให้คะแนนความเข้ากัน (%) และวิเคราะห์ด้านความรัก การใช้ชีวิตร่วมกัน "
+        "จุดแข็ง จุดที่ควรระวัง และคำแนะนำสำหรับคู่นี้ เขียนกระชับเป็นกันเอง"
+    )
+    answer = call_openai_api(prompt)
+    return f"💞 **เช็คดวงคู่ครอง**\n👤 คุณ: {profile}\n💕 คู่ของคุณ: {partner_info}\n━━━━━━━━━━━━━━━\n\n{answer}"
+
+# ==========================================
+# 7. คำคมบำบัดใจ (Quote)
+# ==========================================
+def get_daily_quote():
+    prompt = (
+        "สุ่มสร้างคำคมมงคลหรือข้อคิดดีๆ ให้กำลังใจ 1 ข้อความ "
+        "อาจเป็นคำสอนจากปราชญ์ หลักธรรม หรือข้อคิดจากประสบการณ์ชีวิต "
+        "เขียนสั้นๆ กระชับ 1-3 บรรทัด ภาษาไทยเข้าใจง่าย ให้พลังบวก"
+    )
+    answer = call_openai_api(prompt)
+    return f"🧘 **คำคมบำบัดใจประจำวัน**\n━━━━━━━━━━━━━━━\n\n{answer}\n\n✨ ขอให้มีความสุขในทุกๆ วันครับ ✨"
+
+# ==========================================
 # ระบบส่งข้อความ Telegram
 # ==========================================
 def send_telegram_message(chat_id=None, text=None, reply_markup=None, use_accept_buttons=False):
@@ -174,7 +217,10 @@ def setup_bot():
         {"command": "today", "description": "🔮 ดูดวงวันนี้ (สีมงคล/เลขมงคล)"},
         {"command": "tarot", "description": "🎴 สุ่มเปิดไพ่ยิปซี 1 ใบ"},
         {"command": "lotto", "description": "🎰 ขอเลขเด็ด (หวยไทย/หวยลาว)"},
-        {"command": "ask", "description": "💬 ถามปัญหาชีวิต (พิมพ์ /ask คำถาม)"},
+        {"command": "luck", "description": "📅 ฤกษ์มงคลประจำวัน"},
+        {"command": "match", "description": "💞 เช็คดวงคู่ครอง (/match วันเกิด)"},
+        {"command": "quote", "description": "🧘 คำคมบำบัดใจ"},
+        {"command": "ask", "description": "💬 ถามปัญหาชีวิต (/ask คำถาม)"},
         {"command": "help", "description": "ℹ️ ข้อมูลการใช้งาน"}
     ]
     requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/setMyCommands", json={"commands": commands})
@@ -283,6 +329,22 @@ def webhook():
             )
             send_telegram_message(chat_id, msg, reply_markup=keyboard)
             
+        elif text.startswith("/luck"):
+            send_telegram_message(chat_id, "⏳ กำลังคำนวณฤกษ์มงคลให้ครับ...")
+            send_telegram_message(chat_id, get_lucky_time())
+            
+        elif text.startswith("/match"):
+            partner = text.replace("/match", "").strip()
+            if not partner:
+                send_telegram_message(chat_id, "❓ โปรดพิมพ์วันเกิดของคนที่สนใจต่อท้ายด้วยครับ\nเช่น: `/match 14 ก.พ. 2542` หรือ `/match ราศีกันย์`")
+            else:
+                send_telegram_message(chat_id, f"💞 กำลังวิเคราะห์ดวงคู่ครองให้ รอสักครู่...")
+                send_telegram_message(chat_id, get_match_reading(partner))
+                
+        elif text.startswith("/quote"):
+            send_telegram_message(chat_id, "🧘 กำลังเลือกคำคมดีๆ ให้คุณ...")
+            send_telegram_message(chat_id, get_daily_quote())
+            
         elif text.startswith("/ask"):
             question = text.replace("/ask", "").strip()
             if not question:
@@ -298,7 +360,10 @@ def webhook():
                 "🔮 `/today` - ดูดวงรายวัน พร้อมสี/เลขมงคล\n"
                 "🎴 `/tarot` - สุ่มเปิดไพ่ยิปซีประจำวัน\n"
                 "🎰 `/lotto` - ขอแนวทางเลขเด็ดหวยไทย/ลาว\n"
-                "💬 `/ask [คำถาม]` - ปรึกษาปัญหาชีวิตหรือข้อสงสัย\n\n"
+                "📅 `/luck` - ฤกษ์มงคลประจำวัน\n"
+                "💞 `/match [วันเกิด]` - เช็คดวงคู่ครอง\n"
+                "🧘 `/quote` - คำคมบำบัดใจ\n"
+                "💬 `/ask [คำถาม]` - ปรึกษาปัญหาชีวิต\n\n"
                 "*(บอทจะส่งดวงให้แบบอัตโนมัติทุกเช้าเวลา 04:30 น. ด้วยครับ)*"
             )
             send_telegram_message(chat_id, help_msg)

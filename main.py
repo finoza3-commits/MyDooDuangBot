@@ -112,11 +112,22 @@ def ask_question(question):
 # ==========================================
 # ระบบส่งข้อความ Telegram
 # ==========================================
-def send_telegram_message(chat_id=None, text=None, reply_markup=None):
+def send_telegram_message(chat_id=None, text=None, reply_markup=None, use_accept_buttons=False):
     if text is None:
         text = get_personal_horoscope()
+        use_accept_buttons = True # อัตโนมัติสำหรับดวงตอนเช้า
     if chat_id is None:
         chat_id = CHAT_ID
+
+    if use_accept_buttons and reply_markup is None:
+        reply_markup = {
+            "inline_keyboard": [
+                [
+                    {"text": "🙏 น้อมรับคำทำนาย", "callback_data": "accept_pred"},
+                    {"text": "🙅‍♂️ ไม่รับคำทำนาย", "callback_data": "reject_pred"}
+                ]
+            ]
+        }
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {
@@ -168,8 +179,34 @@ def webhook():
             
             # ส่งข้อความรอ
             send_telegram_message(chat_id, "🎴 กำลังหงายไพ่ที่คุณเลือกและตีความความหมาย...")
-            # ดึงคำทำนาย
-            send_telegram_message(chat_id, get_tarot_reading())
+            # ดึงคำทำนาย พร้อมแนบปุ่มน้อมรับคำทำนาย
+            send_telegram_message(chat_id, get_tarot_reading(), use_accept_buttons=True)
+            
+        elif data == "accept_pred":
+            # แจ้ง Alert หน้าจอ
+            requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/answerCallbackQuery", json={
+                "callback_query_id": cq["id"],
+                "text": "🙏 สาธุ ขอให้สิ่งดีๆ สมหวังดังคำทำนายครับ ✨",
+                "show_alert": True
+            })
+            # เปลี่ยนปุ่มเป็นสถานะกดแล้ว
+            requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/editMessageReplyMarkup", json={
+                "chat_id": chat_id,
+                "message_id": cq["message"]["message_id"],
+                "reply_markup": {"inline_keyboard": [[{"text": "✅ น้อมรับคำทำนายแล้ว", "callback_data": "done"}]]}
+            })
+            
+        elif data == "reject_pred":
+            requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/answerCallbackQuery", json={
+                "callback_query_id": cq["id"],
+                "text": "🙅‍♂️ ปัดเป่าสิ่งร้าย! ขอให้แคล้วคลาดปลอดภัยครับ 🛡️",
+                "show_alert": True
+            })
+            requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/editMessageReplyMarkup", json={
+                "chat_id": chat_id,
+                "message_id": cq["message"]["message_id"],
+                "reply_markup": {"inline_keyboard": [[{"text": "❌ ไม่รับคำทำนาย", "callback_data": "done"}]]}
+            })
             
         return "OK", 200
 
@@ -180,7 +217,7 @@ def webhook():
         
         if text.startswith("/today"):
             send_telegram_message(chat_id, "⏳ กำลังสแกนดวง และคำนวณสีมงคล/เลขมงคลให้ครับ รอสักครู่...")
-            send_telegram_message(chat_id, get_personal_horoscope())
+            send_telegram_message(chat_id, get_personal_horoscope(), use_accept_buttons=True)
             
         elif text.startswith("/tarot"):
             # สร้างปุ่มให้ผู้ใช้กดเลือกไพ่ 3 ใบ

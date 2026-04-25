@@ -115,10 +115,15 @@ def ask_question(question):
 def get_lotto_prediction(lotto_type):
     profile = "ชาย เกิด 26 พ.ค. 2541 (ราศีพฤษภ ♉️)"
     tz = pytz.timezone('Asia/Bangkok')
-    today_date = datetime.now(tz).strftime("%d/%m/%Y")
+    
+    # ดึงวันที่และชื่อวัน
+    now = datetime.now(tz)
+    days_th = ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์", "อาทิตย์"]
+    day_name = days_th[now.weekday()]
+    today_date = f"วัน{day_name}ที่ {now.strftime('%d/%m/%Y')}"
     
     prompt = (
-        f"ผู้ใช้โปรไฟล์ {profile} ต้องการขอแนวทางเลขเด็ดสำหรับ '{lotto_type}' ประจำวันที่ {today_date} "
+        f"ผู้ใช้โปรไฟล์ {profile} ต้องการขอแนวทางเลขเด็ดสำหรับ '{lotto_type}' ประจำ{today_date} "
         "ช่วยวิเคราะห์สถิติ โหราศาสตร์ และให้เลขมงคล (เช่น เลขท้าย 2 ตัว และ 3 ตัว) แบบกระชับ ตรงไปตรงมา "
         "ขอให้มีข้อความอวยพรให้โชคดีถูกรางวัลด้วย"
     )
@@ -268,7 +273,14 @@ def webhook():
                     ]
                 ]
             }
-            send_telegram_message(chat_id, "🎰 คุณต้องการขอแนวทางเลขมงคลสำหรับหวยประเภทไหนครับ?", reply_markup=keyboard)
+            msg = (
+                "🎰 **คุณต้องการขอแนวทางเลขเด็ดสำหรับหวยประเภทไหนครับ?**\n\n"
+                "🗓️ **กำหนดการออกรางวัล:**\n"
+                "🇹🇭 **หวยไทย:** ออกทุกวันที่ 1 และ 16 ของเดือน\n"
+                "🇱🇦 **หวยลาว:** ออกรางวัลวันจันทร์-ศุกร์ (5 วัน/สัปดาห์)\n\n"
+                "*(ระบบ AI จะคำนวณเลขเด็ดตามดวงดาวและวันเวลาปัจจุบันให้ครับ)* 👇"
+            )
+            send_telegram_message(chat_id, msg, reply_markup=keyboard)
             
         elif text.startswith("/ask"):
             question = text.replace("/ask", "").strip()

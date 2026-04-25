@@ -87,7 +87,8 @@ def get_tarot_reading():
     prompt = (
         f"ผู้ใช้โปรไฟล์ {profile} ได้ทำการสุ่มหยิบไพ่ยิปซี 1 ใบ และได้ไพ่ **{card}** "
         f"ช่วยทำนายความหมายของไพ่ใบนี้สำหรับสถานการณ์ปัจจุบันของเขาหน่อย ว่าไพ่กำลังจะบอกหรือเตือนอะไรในวันนี้ "
-        "เขียนกระชับ เข้าใจง่าย และให้ข้อคิดประจำวัน"
+        "โดยส่วนแรกสุดให้ฟันธงระดับความหมายของไพ่ใบนี้ว่าเป็น '🌟 เกณฑ์: ไพ่ดี', '⚠️ เกณฑ์: ไพ่ระวัง (ไม่ดี)', หรือ '⚖️ เกณฑ์: ไพ่ปานกลาง' "
+        "แล้วตามด้วยคำทำนายที่กระชับ เข้าใจง่าย และให้ข้อคิดประจำวัน"
     )
     
     reading = call_openai_api(prompt)
@@ -137,7 +138,7 @@ def get_lotto_prediction(lotto_type):
 def send_telegram_message(chat_id=None, text=None, reply_markup=None, use_accept_buttons=False):
     if text is None:
         text = get_personal_horoscope()
-        use_accept_buttons = True # อัตโนมัติสำหรับดวงตอนเช้า
+        # ไม่ใช้ปุ่มตอบรับสำหรับดวงตอนเช้า
     if chat_id is None:
         chat_id = CHAT_ID
 
@@ -211,8 +212,8 @@ def webhook():
             lotto_type = "หวยไทย 🇹🇭" if data == "lotto_thai" else "หวยลาว 🇱🇦"
             send_telegram_message(chat_id, f"🎲 กำลังคำนวณสถิติและเลขมงคลสำหรับ {lotto_type} รอสักครู่นะครับ...")
             
-            # ส่งเลขเด็ด พร้อมปุ่มน้อมรับคำทำนาย
-            send_telegram_message(chat_id, get_lotto_prediction(lotto_type), use_accept_buttons=True)
+            # ส่งเลขเด็ด (ไม่ใช้ปุ่มรับคำทำนาย)
+            send_telegram_message(chat_id, get_lotto_prediction(lotto_type))
             
         elif data == "accept_pred":
             # แจ้ง Alert หน้าจอ
@@ -249,7 +250,7 @@ def webhook():
         
         if text.startswith("/today"):
             send_telegram_message(chat_id, "⏳ กำลังสแกนดวง และคำนวณสีมงคล/เลขมงคลให้ครับ รอสักครู่...")
-            send_telegram_message(chat_id, get_personal_horoscope(), use_accept_buttons=True)
+            send_telegram_message(chat_id, get_personal_horoscope())
             
         elif text.startswith("/tarot"):
             # สร้างปุ่มให้ผู้ใช้กดเลือกไพ่ 3 ใบ

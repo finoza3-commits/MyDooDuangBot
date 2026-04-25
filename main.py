@@ -1,12 +1,17 @@
+import os
 import requests
-import schedule
-import time
 import random
+import pytz
 from datetime import datetime
+from flask import Flask
+from apscheduler.schedulers.background import BackgroundScheduler
 
-# 1. ใส่ Token และ Chat ID ของคุณที่นี่
-BOT_TOKEN = 'ใส่_TOKEN_ของคุณตรงนี้'
-CHAT_ID = 'ใส่_CHAT_ID_ของคุณตรงนี้'
+# 1. รับค่า Token และ Chat ID จาก Environment Variables ของ Render
+# หากรันบนเครื่องตัวเองให้ใส่ Token/Chat ID แทน 'ใส่_TOKEN_ของคุณตรงนี้' ได้เลย
+BOT_TOKEN = os.environ.get('BOT_TOKEN', 'ใส่_TOKEN_ของคุณตรงนี้')
+CHAT_ID = os.environ.get('CHAT_ID', 'ใส่_CHAT_ID_ของคุณตรงนี้')
+
+app = Flask(__name__)
 
 def get_personal_horoscope():
     """
@@ -23,8 +28,9 @@ def get_personal_horoscope():
         "💼 **การงาน:** เป็นวันที่ดีสำหรับการลุยโปรเจกต์ใหม่ หรือนำเสนอไอเดียที่คุณคิดมานาน\n💰 **การเงิน:** มีแนวโน้มการหมุนเงินที่คล่องตัวขึ้น อาจมีรายรับพิเศษเข้ามา\n❤️ **ความรัก:** คนรักเอาใจใส่ดูแลดีเป็นพิเศษ คนโสดอาจพบคนถูกใจจากสายงานเดียวกัน"
     ]
     
-    # ดึงวันที่ปัจจุบัน
-    today_date = datetime.now().strftime("%d/%m/%Y")
+    # ดึงวันที่ปัจจุบันตามเวลาประเทศไทย
+    tz = pytz.timezone('Asia/Bangkok')
+    today_date = datetime.now(tz).strftime("%d/%m/%Y")
     
     # สุ่มคำทำนาย 1 รูปแบบ
     daily_pred = random.choice(predictions)
@@ -52,24 +58,31 @@ def send_telegram_message():
     
     try:
         response = requests.post(url, json=payload)
+        tz = pytz.timezone('Asia/Bangkok')
+        current_time = datetime.now(tz).strftime("%H:%M:%S")
         if response.status_code == 200:
-            current_time = datetime.now().strftime("%H:%M:%S")
             print(f"✅ ส่งดวงราศีพฤษภเรียบร้อยแล้ว เวลา {current_time}")
         else:
             print(f"❌ เกิดข้อผิดพลาด: {response.text}")
     except Exception as e:
         print(f"❌ ไม่สามารถส่งข้อความได้: {e}")
 
-# 2. ตั้งเวลาที่ต้องการส่งในแต่ละวัน (ระบบ 24 ชั่วโมง)
-# ตัวอย่างตั้งไว้ตอน 08:00 น.
-schedule.every().day.at("08:00").do(send_telegram_message)
+# สร้าง Route เพื่อให้ UptimeRobot ใช้ Ping เช็คว่าบอทยังทำงานอยู่
+@app.route('/')
+def keep_alive():
+    return "Bot is awake and running!"
 
-print("🤖 บอทดูดวงส่วนตัว (ราศีพฤษภ) เริ่มทำงานแล้ว... รอเวลาส่งข้อความ")
-
-# ทดลองส่งทันที 1 ครั้งเพื่อเช็กความเรียบร้อย
-send_telegram_message()
-
-# ลูปทำงานตลอดเวลา
-while True:
-    schedule.run_pending()
-    time.sleep(60)
+if __name__ == '__main__':
+    print("🤖 บอทดูดวงส่วนตัว (ราศีพฤษภ) กำลังเริ่มต้นทำงาน...")
+    
+    # ตั้งค่า Scheduler โดยใช้เวลาประเทศไทย (Asia/Bangkok)
+    tz = pytz.timezone('Asia/Bangkok')
+    scheduler = BackgroundScheduler(timezone=tz)
+    
+    # 2. ตั้งเวลาที่ต้องการส่ง ในที่นี้คือ 04:30 น. (เช้ามืด) ของทุกวัน
+    scheduler.add_job(send_telegram_message, 'cron', hour=4, minute=30)
+    scheduler.start()
+    
+    # รันเว็บเซิร์ฟเวอร์บนพอร์ตที่ Render กำหนด หรือพอร์ต 8080 (สำหรับการทำงานคู่กับ UptimeRobot)
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port)

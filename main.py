@@ -391,10 +391,14 @@ def webhook():
                 "📅 `/luck` - ฤกษ์มงคลประจำวัน\n"
                 "💞 `/match [วันเกิด]` - เช็คดวงคู่ครอง\n"
                 "🧘 `/quote` - คำคมบำบัดใจ\n"
-                "💬 `/ask [คำถาม]` - ปรึกษาปัญหาชีวิต\n\n"
+                "💬 พิมพ์ข้อความถามมาได้เลย - เพื่อปรึกษาปัญหาชีวิต (ไม่ต้องใส่ /ask)\n\n"
                 "*(บอทจะส่งดวงให้แบบอัตโนมัติทุกเช้าเวลา 04:30 น. ด้วยครับ)*"
             )
             send_telegram_message(chat_id, help_msg)
+            
+        elif text and not text.startswith("/"):
+            send_telegram_message(chat_id, f"🤔 กำลังหาคำตอบสำหรับ: '{text}' ...")
+            send_telegram_message(chat_id, ask_question(text))
             
     return "OK", 200
 

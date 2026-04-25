@@ -112,7 +112,7 @@ def ask_question(question):
 # ==========================================
 # ระบบส่งข้อความ Telegram
 # ==========================================
-def send_telegram_message(chat_id=None, text=None):
+def send_telegram_message(chat_id=None, text=None, reply_markup=None):
     if text is None:
         text = get_personal_horoscope()
     if chat_id is None:
@@ -124,6 +124,9 @@ def send_telegram_message(chat_id=None, text=None):
         "text": text,
         "parse_mode": "Markdown"
     }
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
+        
     try:
         requests.post(url, json=payload)
     except Exception as e:
@@ -152,6 +155,25 @@ def setup_bot():
 @app.route('/webhook', methods=['POST'])
 def webhook():
     update = request.get_json()
+    
+    # 1. จัดการเมื่อผู้ใช้กดปุ่ม (Callback Query) จากการเลือกไพ่ยิปซี
+    if update and "callback_query" in update:
+        cq = update["callback_query"]
+        chat_id = cq["message"]["chat"]["id"]
+        data = cq["data"]
+        
+        if data.startswith("tarot_"):
+            # แจ้งให้ Telegram ทราบว่ารับคำสั่งปุ่มแล้ว
+            requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/answerCallbackQuery", json={"callback_query_id": cq["id"]})
+            
+            # ส่งข้อความรอ
+            send_telegram_message(chat_id, "🎴 กำลังหงายไพ่ที่คุณเลือกและตีความความหมาย...")
+            # ดึงคำทำนาย
+            send_telegram_message(chat_id, get_tarot_reading())
+            
+        return "OK", 200
+
+    # 2. จัดการเมื่อผู้ใช้พิมพ์ข้อความปกติ
     if update and "message" in update:
         chat_id = update["message"]["chat"]["id"]
         text = update["message"].get("text", "")
@@ -161,8 +183,17 @@ def webhook():
             send_telegram_message(chat_id, get_personal_horoscope())
             
         elif text.startswith("/tarot"):
-            send_telegram_message(chat_id, "🎴 กำลังสับไพ่และเลือกไพ่ยิปซี 1 ใบให้คุณ...")
-            send_telegram_message(chat_id, get_tarot_reading())
+            # สร้างปุ่มให้ผู้ใช้กดเลือกไพ่ 3 ใบ
+            keyboard = {
+                "inline_keyboard": [
+                    [
+                        {"text": "🃏 ใบซ้าย", "callback_data": "tarot_left"},
+                        {"text": "🃏 ใบกลาง", "callback_data": "tarot_center"},
+                        {"text": "🃏 ใบขวา", "callback_data": "tarot_right"}
+                    ]
+                ]
+            }
+            send_telegram_message(chat_id, "ตั้งสมาธิ อธิษฐานในใจ แล้วจิ้มเลือกไพ่ 1 ใบเลยครับ 👇", reply_markup=keyboard)
             
         elif text.startswith("/ask"):
             question = text.replace("/ask", "").strip()

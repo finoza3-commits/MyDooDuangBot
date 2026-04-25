@@ -110,6 +110,23 @@ def ask_question(question):
     return message
 
 # ==========================================
+# 4. ฟังก์ชันขอเลขเด็ดหวย (Lotto)
+# ==========================================
+def get_lotto_prediction(lotto_type):
+    profile = "ชาย เกิด 26 พ.ค. 2541 (ราศีพฤษภ ♉️)"
+    tz = pytz.timezone('Asia/Bangkok')
+    today_date = datetime.now(tz).strftime("%d/%m/%Y")
+    
+    prompt = (
+        f"ผู้ใช้โปรไฟล์ {profile} ต้องการขอแนวทางเลขเด็ดสำหรับ '{lotto_type}' ประจำวันที่ {today_date} "
+        "ช่วยวิเคราะห์สถิติ โหราศาสตร์ และให้เลขมงคล (เช่น เลขท้าย 2 ตัว และ 3 ตัว) แบบกระชับ ตรงไปตรงมา "
+        "ขอให้มีข้อความอวยพรให้โชคดีถูกรางวัลด้วย"
+    )
+    answer = call_openai_api(prompt)
+    message = f"🎰 **แนวทาง{lotto_type}** ({today_date})\n\n{answer}"
+    return message
+
+# ==========================================
 # ระบบส่งข้อความ Telegram
 # ==========================================
 def send_telegram_message(chat_id=None, text=None, reply_markup=None, use_accept_buttons=False):
@@ -150,6 +167,7 @@ def setup_bot():
     commands = [
         {"command": "today", "description": "🔮 ดูดวงวันนี้ (สีมงคล/เลขมงคล)"},
         {"command": "tarot", "description": "🎴 สุ่มเปิดไพ่ยิปซี 1 ใบ"},
+        {"command": "lotto", "description": "🎰 ขอเลขเด็ด (หวยไทย/หวยลาว)"},
         {"command": "ask", "description": "💬 ถามปัญหาชีวิต (พิมพ์ /ask คำถาม)"},
         {"command": "help", "description": "ℹ️ ข้อมูลการใช้งาน"}
     ]
@@ -181,6 +199,15 @@ def webhook():
             send_telegram_message(chat_id, "🎴 กำลังหงายไพ่ที่คุณเลือกและตีความความหมาย...")
             # ดึงคำทำนาย พร้อมแนบปุ่มน้อมรับคำทำนาย
             send_telegram_message(chat_id, get_tarot_reading(), use_accept_buttons=True)
+            
+        elif data.startswith("lotto_"):
+            requests.post(f"https://api.telegram.org/bot{BOT_TOKEN}/answerCallbackQuery", json={"callback_query_id": cq["id"]})
+            
+            lotto_type = "หวยไทย 🇹🇭" if data == "lotto_thai" else "หวยลาว 🇱🇦"
+            send_telegram_message(chat_id, f"🎲 กำลังคำนวณสถิติและเลขมงคลสำหรับ {lotto_type} รอสักครู่นะครับ...")
+            
+            # ส่งเลขเด็ด พร้อมปุ่มน้อมรับคำทำนาย
+            send_telegram_message(chat_id, get_lotto_prediction(lotto_type), use_accept_buttons=True)
             
         elif data == "accept_pred":
             # แจ้ง Alert หน้าจอ
@@ -232,6 +259,17 @@ def webhook():
             }
             send_telegram_message(chat_id, "ตั้งสมาธิ อธิษฐานในใจ แล้วจิ้มเลือกไพ่ 1 ใบเลยครับ 👇", reply_markup=keyboard)
             
+        elif text.startswith("/lotto"):
+            keyboard = {
+                "inline_keyboard": [
+                    [
+                        {"text": "🇹🇭 หวยไทย", "callback_data": "lotto_thai"},
+                        {"text": "🇱🇦 หวยลาว", "callback_data": "lotto_lao"}
+                    ]
+                ]
+            }
+            send_telegram_message(chat_id, "🎰 คุณต้องการขอแนวทางเลขมงคลสำหรับหวยประเภทไหนครับ?", reply_markup=keyboard)
+            
         elif text.startswith("/ask"):
             question = text.replace("/ask", "").strip()
             if not question:
@@ -246,6 +284,7 @@ def webhook():
                 "📌 **เมนูคำสั่งทั้งหมด:**\n"
                 "🔮 `/today` - ดูดวงรายวัน พร้อมสี/เลขมงคล\n"
                 "🎴 `/tarot` - สุ่มเปิดไพ่ยิปซีประจำวัน\n"
+                "🎰 `/lotto` - ขอแนวทางเลขเด็ดหวยไทย/ลาว\n"
                 "💬 `/ask [คำถาม]` - ปรึกษาปัญหาชีวิตหรือข้อสงสัย\n\n"
                 "*(บอทจะส่งดวงให้แบบอัตโนมัติทุกเช้าเวลา 04:30 น. ด้วยครับ)*"
             )
